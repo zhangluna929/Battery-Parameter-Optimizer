@@ -7,12 +7,12 @@ class ElectrochemicalBatteryModel:
     """电池电化学反应动力学模型"""
 
     def __init__(self, capacity, resistance, voltage, temperature=25, max_soc=1.0, min_soc=0.0, nominal_voltage=3.7):
-        self.capacity = capacity  # 电池容量 (Ah)
-        self.resistance = resistance  # 内部电阻 (ohm)
-        self.voltage = voltage  # 电池电压 (V)
-        self.nominal_voltage = nominal_voltage  # 电池额定电压 (V)
-        self.temperature = temperature  # 电池温度 (°C)
-        self.state_of_charge = 1.0  # 电池初始SOC
+        self.capacity = capacity  
+        self.resistance = resistance  
+        self.voltage = voltage 
+        self.nominal_voltage = nominal_voltage 
+        self.temperature = temperature  
+        self.state_of_charge = 1.0 
 
     def calculate_voltage(self, soc):
         """
@@ -20,7 +20,7 @@ class ElectrochemicalBatteryModel:
         :param soc: 电池的充电状态 (SOC)
         :return: 电池电压 (V)
         """
-        voltage_drop = self.resistance * (self.voltage - self.nominal_voltage)  # 电池内部电阻的电压降
+        voltage_drop = self.resistance * (self.voltage - self.nominal_voltage) 
         voltage = self.nominal_voltage * soc - voltage_drop
         return voltage
 
@@ -33,9 +33,9 @@ class ElectrochemicalBatteryModel:
         """
         voltage_values = []
         for t in range(time_steps):
-            # 更新电池SOC
-            self.state_of_charge += current * 1  # 简单更新公式
-            self.state_of_charge = np.clip(self.state_of_charge, 0, 1)  # 限制SOC在0-1之间
+           
+            self.state_of_charge += current * 1 
+            self.state_of_charge = np.clip(self.state_of_charge, 0, 1)  
             voltage = self.calculate_voltage(self.state_of_charge)
             voltage_values.append(voltage)
         return np.array(voltage_values)
@@ -57,12 +57,11 @@ def least_squares_optimization(model, time_steps, experimental_data, initial_par
         :param params: 模型参数 (如电池容量、内阻等)
         :return: 最小化的误差值
         """
-        model.capacity, model.resistance = params[0], params[1]  # 更新模型参数
-        predicted_voltage = model.simulate(current=-5, time_steps=time_steps)  # 仿真电池电压
-        error = np.sum((predicted_voltage - experimental_data) ** 2)  # 计算误差（最小二乘法）
+        model.capacity, model.resistance = params[0], params[1] 
+        predicted_voltage = model.simulate(current=-5, time_steps=time_steps)  
+        error = np.sum((predicted_voltage - experimental_data) ** 2)  
         return error
 
-    # 使用最小二乘法进行参数优化
     result = minimize(objective_function, initial_params, method='Nelder-Mead')
     optimized_params = result.x
     return optimized_params
@@ -79,53 +78,44 @@ def bayesian_optimization(model, time_steps, experimental_data, prior_mean, prio
     :param num_iterations: 迭代次数
     :return: 后验分布的均值和标准差
     """
-    posterior_mean = np.array(prior_mean)  # 初始后验均值为先验均值
-    posterior_std = np.array(prior_std)  # 初始后验标准差为先验标准差
+    posterior_mean = np.array(prior_mean)  
+    posterior_std = np.array(prior_std)  
 
-    # 贝叶斯更新过程
     for _ in range(num_iterations):
-        # 计算似然函数：基于当前参数仿真，计算与实验数据的差异
+       
         def likelihood(params):
-            model.capacity, model.resistance = params[0], params[1]  # 更新模型参数
+            model.capacity, model.resistance = params[0], params[1]  
             predicted_voltage = model.simulate(current=-5, time_steps=time_steps)
-            likelihood_value = -np.sum((predicted_voltage - experimental_data) ** 2)  # 负的最小二乘误差
+            likelihood_value = -np.sum((predicted_voltage - experimental_data) ** 2)  
             return likelihood_value
 
-        # 采样：基于当前后验分布采样
         sampled_params = np.random.normal(posterior_mean, posterior_std)
         likelihood_value = likelihood(sampled_params)
 
-        # 更新后验分布
-        posterior_mean += 0.1 * (sampled_params - posterior_mean)  # 更新均值
-        posterior_std += 0.1 * np.abs(sampled_params - posterior_mean)  # 更新标准差
+        posterior_mean += 0.1 * (sampled_params - posterior_mean)  
+        posterior_std += 0.1 * np.abs(sampled_params - posterior_mean)  
 
     return posterior_mean, posterior_std
 
-
-# 主函数
 if __name__ == "__main__":
-    # 定义电池模型
     battery_model = ElectrochemicalBatteryModel(capacity=50, resistance=0.1, voltage=3.7)
 
-    # 假设的实验数据（实际使用时应从实验中获得）
     time_steps = 10
     experimental_data = np.array([3.5, 3.45, 3.42, 3.4, 3.35, 3.3, 3.25, 3.2, 3.1, 3.05])
 
-    # 初始参数猜测
-    initial_params = [50, 0.1]  # 初始猜测的电池容量和内阻
+    initial_params = [50, 0.1] 
 
     # 1. 最小二乘法优化
     optimized_params_ls = least_squares_optimization(battery_model, time_steps, experimental_data, initial_params)
     print(f"最小二乘法优化结果：电池容量 = {optimized_params_ls[0]}, 内阻 = {optimized_params_ls[1]}")
 
     # 2. 贝叶斯推断优化
-    prior_mean = [50, 0.1]  # 先验均值
-    prior_std = [5, 0.01]  # 先验标准差
+    prior_mean = [50, 0.1]  
+    prior_std = [5, 0.01]  
     posterior_mean, posterior_std = bayesian_optimization(battery_model, time_steps, experimental_data, prior_mean,
                                                           prior_std)
     print(f"贝叶斯推断优化结果：电池容量 = {posterior_mean[0]}, 内阻 = {posterior_mean[1]}")
 
-    # 绘制结果对比
     plt.plot(experimental_data, label='实验数据')
     plt.plot(battery_model.simulate(current=-5, time_steps=time_steps), label='最小二乘法优化模型')
     plt.legend()
